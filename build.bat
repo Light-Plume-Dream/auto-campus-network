@@ -11,7 +11,19 @@ echo [1/2] 检查 PyInstaller...
 echo.
 
 echo [2/2] 开始打包 (单文件模式)...
-%PY% -m PyInstaller --clean --onefile --windowed --name "自动校园网连接" main.py
+%PY% -m PyInstaller --clean --onefile --windowed --name "自动校园网连接" ^
+    --add-data "config_manager.py;." ^
+    --add-data "daemon.py;." ^
+    --add-data "autostart.py;." ^
+    --add-data "wol.py;." ^
+    --add-data "logger.py;." ^
+    --add-data "tray.py;." ^
+    --add-data "web_wol.py;." ^
+    --add-data "device_manager.py;." ^
+    --add-data "icon_generator.py;." ^
+    --collect-all pkg_resources ^
+    --collect-all setuptools ^
+    main.py
 
 if errorlevel 1 (
     echo 错误: 打包失败
