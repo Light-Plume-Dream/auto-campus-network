@@ -1,0 +1,51 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# PyInstaller
+build/
+dist/
+*.spec
+*.pkg
+*.manifest
+
+# Compiled files
+*.exe
+*.zip
+
+# Generated icons
+app_icon.ico
+app_icon.png
+app_icon_small.png
+
+# Config and data (contains user credentials)
+config.json
+*.json
+
+# Logs
+logs/
+*.log
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Installer output
+发布包/
+installer.bat
+自动校园网连接-安装包.zip
