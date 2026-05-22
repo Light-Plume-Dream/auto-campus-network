@@ -463,7 +463,13 @@ class CampusNetworkApp:
         self.root.after(0, lambda: self.status_var.set(f"{status}: {msg}"))
 
     def _on_closing(self):
-        self.root.withdraw()
+        if self.daemon and self.daemon.is_running():
+            self.root.withdraw()
+        else:
+            self.root.destroy()
+
+    def quit(self):
+        self.root.quit()
 
     def _show_logs(self):
         w = tk.Toplevel(self.root)

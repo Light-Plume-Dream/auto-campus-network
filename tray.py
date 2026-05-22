@@ -27,24 +27,44 @@ class SystemTray:
     def _load_icon(self):
         """
         加载托盘图标，优先级：
-        1. app_icon.ico（程序自带）
-        2. 自动生成图标
-        3. Windows 默认图标
+        1. app_icon.ico（程序目录/打包临时目录）
+        2. 从 exe 自身资源提取
+        3. 自动生成图标
+        4. Windows 默认图标
         """
-        # 优先使用自带的图标
-        ico_path = str(Path(__file__).parent / "app_icon.ico")
-        if os.path.exists(ico_path):
+        # 查找图标文件
+        ico_paths = []
+        
+        # 打包后的临时目录
+        if getattr(sys, "frozen", False):
+            ico_paths.append(os.path.join(sys._MEIPASS, "app_icon.ico"))
+        
+        # 当前脚本目录
+        ico_paths.append(str(Path(__file__).parent / "app_icon.ico"))
+
+        for ico_path in ico_paths:
+            if os.path.exists(ico_path):
+                try:
+                    return win32gui.LoadImage(
+                        0, ico_path,
+                        win32con.IMAGE_ICON,
+                        0, 0,
+                        win32con.LR_LOADFROMFILE
+                    )
+                except Exception:
+                    pass
+
+        # 从 exe 自身资源提取图标（打包后）
+        if getattr(sys, "frozen", False):
             try:
-                return win32gui.LoadImage(
-                    0, ico_path,
-                    win32con.IMAGE_ICON,
-                    0, 0,
-                    win32con.LR_LOADFROMFILE
-                )
+                hmod = win32api.GetModuleHandle(None)
+                hicon = win32gui.LoadIcon(hmod, 1)
+                if hicon:
+                    return hicon
             except Exception:
                 pass
 
-        # 如果不存在则自动生成
+        # 自动生成
         try:
             generated = generate_icon()
             if generated and os.path.exists(generated):
@@ -57,7 +77,7 @@ class SystemTray:
         except Exception:
             pass
 
-        # 最后使用 Windows 默认图标
+        # Windows 默认图标
         try:
             hmod = win32api.GetModuleHandle(None)
             return win32gui.LoadIcon(hmod, win32con.IDI_APPLICATION)
@@ -137,14 +157,24 @@ class SystemTray:
         self._running = False
         self._remove_icon()
         if self.hwnd:
-            win32gui.DestroyWindow(self.hwnd)
-            self.hwnd = None
+            try:
+                win32gui.DestroyWindow(self.hwnd)
+                self.hwnd = None
+            except Exception:
+                pass
         if self.app_root:
-            self.app_root.after(0, self.app_root.quit)
+            self.app_root.after(0, self.app_root.root.quit)
 
     def _show_window(self):
         if self.app_root:
-            self.app_root.after(0, self.app_root.root.deiconify)
+            def restore():
+                root = self.app_root.root
+                root.deiconify()
+                root.lift()
+                root.attributes('-topmost', True)
+                root.after(100, lambda: root.attributes('-topmost', False))
+                root.focus_force()
+            self.app_root.after(0, restore)
 
     def start(self):
         self._thread = threading.Thread(target=self._run_tray, daemon=True)

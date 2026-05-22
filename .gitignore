@@ -32,6 +32,8 @@ logs/
 venv/
 env/
 .venv/
+clean_env/
+py314_env/
 
 # IDE
 .vscode/
@@ -49,3 +51,7 @@ desktop.ini
 发布包/
 installer.bat
 自动校园网连接-安装包.zip
+
+# Auto-generated icons (any name)
+icon.ico
+icon.png
