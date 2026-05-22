@@ -22,7 +22,8 @@ class SystemTray:
         self._thread = None
         self._running = False
         self._hicon = None
-        self._menu_items = {}
+        self._next_id = 1000
+        self._menu_actions = {}
 
     def _load_icon(self):
         """
@@ -32,14 +33,11 @@ class SystemTray:
         3. 自动生成图标
         4. Windows 默认图标
         """
-        # 查找图标文件
         ico_paths = []
         
-        # 打包后的临时目录
         if getattr(sys, "frozen", False):
             ico_paths.append(os.path.join(sys._MEIPASS, "app_icon.ico"))
         
-        # 当前脚本目录
         ico_paths.append(str(Path(__file__).parent / "app_icon.ico"))
 
         for ico_path in ico_paths:
@@ -54,7 +52,6 @@ class SystemTray:
                 except Exception:
                     pass
 
-        # 从 exe 自身资源提取图标（打包后）
         if getattr(sys, "frozen", False):
             try:
                 hmod = win32api.GetModuleHandle(None)
@@ -64,7 +61,6 @@ class SystemTray:
             except Exception:
                 pass
 
-        # 自动生成
         try:
             generated = generate_icon()
             if generated and os.path.exists(generated):
@@ -77,63 +73,57 @@ class SystemTray:
         except Exception:
             pass
 
-        # Windows 默认图标
         try:
             hmod = win32api.GetModuleHandle(None)
             return win32gui.LoadIcon(hmod, win32con.IDI_APPLICATION)
         except Exception:
             return 0
 
-    def _icon_wnd_proc(self, hwnd, msg, wparam, lparam):
-        if msg == WM_TRAYICON:
-            if lparam in (win32con.WM_RBUTTONUP, win32con.WM_CONTEXTMENU):
-                self._show_menu()
-            elif lparam == win32con.WM_LBUTTONDBLCLK:
-                self._show_window()
-        elif msg == win32con.WM_COMMAND:
-            cmd_id = wparam & 0xFFFF
-            if cmd_id in self._menu_items:
-                self._menu_items[cmd_id]()
-        elif msg == win32con.WM_DESTROY:
-            win32gui.PostQuitMessage(0)
-        return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
+    def _add_menu_item(self, menu, text, action):
+        item_id = self._next_id
+        self._next_id += 1
+        self._menu_actions[item_id] = action
+        win32gui.AppendMenu(menu, win32con.MF_STRING, item_id, text)
+        return item_id
+
+    def _on_menu_select(self, item_id):
+        action = self._menu_actions.get(item_id)
+        if action:
+            try:
+                action()
+            except Exception as e:
+                self.logger.error(f"菜单回调错误: {e}")
 
     def _show_menu(self):
         menu = win32gui.CreatePopupMenu()
-        self._menu_items = {}
-        item_id = 1000
+        self._menu_actions = {}
+        self._next_id = 1000
 
-        win32gui.AppendMenu(menu, win32con.MF_STRING, item_id, "显示窗口")
-        self._menu_items[item_id] = self._show_window
-        item_id += 1
+        self._add_menu_item(menu, "显示窗口", self._show_window)
+        self._add_menu_item(menu, "查看日志", self._show_logs)
 
         if self.daemon.is_running():
             label = "恢复连接" if self.daemon.is_paused() else "暂停连接"
         else:
             label = "启动连接"
-        win32gui.AppendMenu(menu, win32con.MF_STRING, item_id, label)
-        self._menu_items[item_id] = self._toggle_connection
-        item_id += 1
-
-        win32gui.AppendMenu(menu, win32con.MF_STRING, item_id, "查看日志")
-        self._menu_items[item_id] = self._show_logs
-        item_id += 1
+        self._add_menu_item(menu, label, self._toggle_connection)
 
         win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
-
-        win32gui.AppendMenu(menu, win32con.MF_STRING, item_id, "退出")
-        self._menu_items[item_id] = self._quit
-
-        win32gui.SetMenuDefaultItem(menu, 1000, False)
+        self._add_menu_item(menu, "退出", self._quit)
 
         pos = win32gui.GetCursorPos()
         win32gui.SetForegroundWindow(self.hwnd)
-        win32gui.TrackPopupMenu(
+        
+        cmd = win32gui.TrackPopupMenu(
             menu,
-            win32con.TPM_RIGHTBUTTON | win32con.TPM_BOTTOMALIGN,
+            win32con.TPM_LEFTALIGN | win32con.TPM_RETURNCMD | win32con.TPM_RIGHTBUTTON,
             pos[0], pos[1],
             0, self.hwnd, None
         )
+        
+        if cmd:
+            self._on_menu_select(cmd)
+        
         win32gui.PostMessage(self.hwnd, win32con.WM_NULL, 0, 0)
 
     def _show_logs(self):
@@ -215,6 +205,16 @@ class SystemTray:
             self.logger.error(f"Tray icon error: {e}")
 
         win32gui.PumpMessages()
+
+    def _icon_wnd_proc(self, hwnd, msg, wparam, lparam):
+        if msg == WM_TRAYICON:
+            if lparam in (win32con.WM_RBUTTONUP, win32con.WM_CONTEXTMENU):
+                self._show_menu()
+            elif lparam == win32con.WM_LBUTTONDBLCLK:
+                self._show_window()
+        elif msg == win32con.WM_DESTROY:
+            win32gui.PostQuitMessage(0)
+        return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
 
     def _remove_icon(self):
         if self.hwnd:
