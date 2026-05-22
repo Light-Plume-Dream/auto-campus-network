@@ -17,7 +17,7 @@ def is_autostart_enabled() -> bool:
 def enable_autostart(exe_path: str) -> bool:
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, AUTOSTART_KEY, 0, winreg.KEY_SET_VALUE) as key:
-            winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, f'"{exe_path}"')
+            winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, f'"{exe_path}" --autostart')
         return True
     except Exception:
         return False

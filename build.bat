@@ -1,29 +1,17 @@
 @echo off
 chcp 65001 >nul
-set PY=C:\anaconda3\python.exe
+set PY=C:\Users\31841\AppData\Local\Programs\Python\Python314\python.exe
 echo ========================================
 echo   自动校园网连接 - 打包工具
 echo ========================================
 echo.
 
-echo [1/2] 检查 PyInstaller...
-%PY% -m pip install pyinstaller Pillow --quiet
+echo [1/2] 安装依赖...
+%PY% -m pip install Pillow pywin32 pyinstaller --user --quiet
 echo.
 
 echo [2/2] 开始打包 (单文件模式)...
-%PY% -m PyInstaller --clean --onefile --windowed --name "自动校园网连接" ^
-    --add-data "config_manager.py;." ^
-    --add-data "daemon.py;." ^
-    --add-data "autostart.py;." ^
-    --add-data "wol.py;." ^
-    --add-data "logger.py;." ^
-    --add-data "tray.py;." ^
-    --add-data "web_wol.py;." ^
-    --add-data "device_manager.py;." ^
-    --add-data "icon_generator.py;." ^
-    --collect-all pkg_resources ^
-    --collect-all setuptools ^
-    main.py
+%PY% -m PyInstaller --clean --onefile --windowed --name "自动校园网连接" --icon=app_icon.ico main.py
 
 if errorlevel 1 (
     echo 错误: 打包失败

@@ -149,8 +149,10 @@ class CampusNetworkApp:
     def _autostart(self, parent):
         f = ttk.LabelFrame(parent, text="开机自启", padding=12)
         f.grid(row=4, column=0, pady=8, sticky="ew")
-        self.auto_var = tk.BooleanVar()
-        ttk.Checkbutton(f, text="开机自动启动", variable=self.auto_var).pack(anchor="w")
+        self.auto_var = tk.IntVar(value=0)
+        tk.Checkbutton(f, text="开机自动启动（后台静默连接）", variable=self.auto_var,
+                       selectcolor=self.root.cget("bg"), font=("Microsoft YaHei", 9),
+                       indicatoron=True, relief="flat", anchor="w").pack(anchor="w", fill=tk.X)
 
     def _wol_section(self, parent):
         f = ttk.LabelFrame(parent, text="远程唤醒", padding=12)
@@ -389,7 +391,26 @@ class CampusNetworkApp:
         self.rinterval.set(str(c.get("retry_interval", 10)))
         self.cinterval.set(str(c.get("check_interval", 30)))
         self.sinterval.set(str(c.get("sleep_interval", 600)))
-        self.auto_var.set(is_autostart_enabled())
+        self.auto_var.set(1 if is_autostart_enabled() else 0)
+        self._detect_autostart_mode()
+
+    def _detect_autostart_mode(self):
+        if "--autostart" not in sys.argv:
+            return
+        c = self.config.get_config()
+        if c.get("username") and c.get("password"):
+            self.root.withdraw()
+            self.root.after(500, lambda: self._start_daemon(c))
+            self.save_btn.config(state=tk.DISABLED)
+            self.stop_btn.config(state=tk.NORMAL)
+            self.status_var.set("运行中 - 开机自启（后台）")
+            self.logger.info("开机自启模式：后台静默启动")
+            self.root.after(1000, self._create_tray_only)
+
+    def _create_tray_only(self):
+        if not self.tray and self.daemon:
+            self.tray = SystemTray(self.daemon, self.logger, self.config, self)
+            self.tray.start()
 
     def _save_config(self):
         c = {
