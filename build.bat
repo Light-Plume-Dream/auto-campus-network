@@ -7,11 +7,11 @@ echo ========================================
 echo.
 
 echo [1/2] 安装依赖...
-%PY% -m pip install Pillow pywin32 pyinstaller --user --quiet
+%PY% -m pip install Pillow pywin32 pyinstaller --quiet
 echo.
 
-echo [2/2] 开始打包 (单文件模式)...
-%PY% -m PyInstaller --clean --onefile --windowed --name "自动校园网连接" --icon=app_icon.ico main.py
+echo [2/2] 开始打包 (spec 模式)...
+%PY% -m PyInstaller --clean build_clean.spec
 
 if errorlevel 1 (
     echo 错误: 打包失败

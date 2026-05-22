@@ -7,9 +7,9 @@ __pycache__/
 # PyInstaller
 build/
 dist/
-*.spec
 *.pkg
 *.manifest
+!build_clean.spec
 
 # Compiled files
 *.exe
