@@ -1,41 +1,54 @@
 from PIL import Image, ImageDraw
 from pathlib import Path
-import os
 import struct
+import io
 
 
 def _write_ico(im: Image.Image, path: str):
+    """
+    生成标准格式的 ICO 文件（使用 PNG 压缩存储）
+    """
     width, height = im.size
     if width != height or width > 256:
         im = im.resize((256, 256), Image.LANCZOS)
         width, height = 256, 256
 
-    png_data = im.tobytes("raw", "BGRA")
+    # 使用 PNG 格式存储图标数据（体积小、兼容性好）
+    png_buffer = io.BytesIO()
+    im.save(png_buffer, format='PNG')
+    png_data = png_buffer.getvalue()
     png_size = len(png_data)
 
     with open(path, "wb") as f:
+        # ICO header
         f.write(struct.pack("<HHH", 0, 1, 1))
+        # ICO directory entry
         f.write(struct.pack("<BBBBHHII",
                             width % 256 or 0,
                             height % 256 or 0,
-                            0,
-                            0,
-                            1,
-                            32,
+                            0,  # color count (0 = 256+)
+                            0,  # reserved
+                            1,  # color planes
+                            32, # bits per pixel
                             png_size,
-                            22))
+                            22))  # offset to image data
+        # PNG data
         f.write(png_data)
 
 
-def generate_icon(output_path: str = None, size: int = 256) -> str:
+def generate_icon(output_path: str = None) -> str:
+    """
+    生成应用图标（PNG + ICO 格式）
+    """
+    size = 256
     base_dir = Path(__file__).parent
     png_path = str(base_dir / "app_icon.png")
     ico_path = str(base_dir / "app_icon.ico")
-    icon_path = output_path or png_path
 
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
+    # 蓝色圆角背景
     bg_size = size
     r = int(size * 0.2)
     draw.rounded_rectangle(
@@ -44,8 +57,8 @@ def generate_icon(output_path: str = None, size: int = 256) -> str:
         fill=(42, 157, 255, 255),
     )
 
+    # 绘制网络图标图案
     cx, cy = size // 2, size // 2
-    margin = int(size * 0.22)
     left_x = int(size * 0.15)
     right_x = int(size * 0.85)
 
@@ -86,17 +99,13 @@ def generate_icon(output_path: str = None, size: int = 256) -> str:
         width=line_width,
     )
 
-    small_size = int(size * 0.16)
-    small_path = str(base_dir / "app_icon_small.png")
-    small_img = img.resize((small_size, small_size), Image.LANCZOS)
-    small_img.save(small_path, "PNG")
-
+    # 保存 PNG 和 ICO
     img.save(png_path, "PNG")
     _write_ico(img, ico_path)
 
-    return icon_path
+    return ico_path
 
 
 if __name__ == "__main__":
-    generate_icon()
-    print("Icons generated successfully.")
+    path = generate_icon()
+    print(f"Icons generated: {path}")

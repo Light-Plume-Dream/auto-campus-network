@@ -25,22 +25,44 @@ class SystemTray:
         self._menu_items = {}
 
     def _load_icon(self):
-        try:
-            png_path = generate_icon()
-            ico_path = str(Path(png_path).with_suffix(".ico"))
-            if not os.path.exists(ico_path):
-                ico_path = str(Path(__file__).parent / "app_icon.ico")
-            if os.path.exists(ico_path):
+        """
+        加载托盘图标，优先级：
+        1. app_icon.ico（程序自带）
+        2. 自动生成图标
+        3. Windows 默认图标
+        """
+        # 优先使用自带的图标
+        ico_path = str(Path(__file__).parent / "app_icon.ico")
+        if os.path.exists(ico_path):
+            try:
                 return win32gui.LoadImage(
                     0, ico_path,
                     win32con.IMAGE_ICON,
                     0, 0,
                     win32con.LR_LOADFROMFILE
                 )
+            except Exception:
+                pass
+
+        # 如果不存在则自动生成
+        try:
+            generated = generate_icon()
+            if generated and os.path.exists(generated):
+                return win32gui.LoadImage(
+                    0, generated,
+                    win32con.IMAGE_ICON,
+                    0, 0,
+                    win32con.LR_LOADFROMFILE
+                )
         except Exception:
             pass
-        hmod = win32api.GetModuleHandle(None)
-        return win32gui.LoadIcon(hmod, win32con.IDI_APPLICATION)
+
+        # 最后使用 Windows 默认图标
+        try:
+            hmod = win32api.GetModuleHandle(None)
+            return win32gui.LoadIcon(hmod, win32con.IDI_APPLICATION)
+        except Exception:
+            return 0
 
     def _icon_wnd_proc(self, hwnd, msg, wparam, lparam):
         if msg == WM_TRAYICON:

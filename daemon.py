@@ -1,7 +1,16 @@
 import subprocess
 import time
 import threading
+import os
 from logger import Logger
+
+# 隐藏 Windows 控制台窗口
+SW_HIDE = 0
+startupinfo = None
+if os.name == 'nt':
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = SW_HIDE
 
 
 class ConnectionDaemon:
@@ -23,40 +32,44 @@ class ConnectionDaemon:
         now = time.strftime("%H:%M")
         return start <= now <= end
 
-    def _is_connected(self) -> bool:
-        conn_name = self.config.get("connection_name", "")
+    def _run_cmd(self, args, timeout=30):
+        """执行命令并隐藏控制台窗口"""
         try:
             result = subprocess.run(
-                ["rasdial"],
+                args,
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=timeout,
+                startupinfo=startupinfo,
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
-            return conn_name in result.stdout
-        except Exception:
-            return False
+            return result.returncode, result.stdout, result.stderr
+        except subprocess.TimeoutExpired:
+            return -1, "", "Command timed out"
+        except Exception as e:
+            self.logger.error(f"执行命令失败: {e}")
+            return -1, "", str(e)
+
+    def _is_connected(self) -> bool:
+        conn_name = self.config.get("connection_name", "")
+        retcode, stdout, stderr = self._run_cmd(["rasdial"], timeout=10)
+        return conn_name in stdout
 
     def _dial(self) -> bool:
         conn_name = self.config.get("connection_name", "")
         user = self.config.get("username", "")
         password = self.config.get("password", "")
-        try:
-            result = subprocess.run(
-                ["rasdial", conn_name, user, password],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            return result.returncode == 0
-        except Exception as e:
-            self.logger.error(f"拨号异常: {e}")
-            return False
+        retcode, stdout, stderr = self._run_cmd(
+            ["rasdial", conn_name, user, password], timeout=30
+        )
+        if retcode != 0:
+            self.logger.error(f"拨号失败: {stderr}")
+        return retcode == 0
 
     def _run_loop(self):
         self._notify_status("started", "自动连接守护进程已启动")
         retry_limit = self.config.get("retry_limit", 30)
         retry_interval = self.config.get("retry_interval", 10)
-        sleep_outside_interval = self.config.get("sleep_interval", 600)
         check_interval = self.config.get("check_interval", 30)
 
         while self._running:
