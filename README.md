@@ -7,7 +7,7 @@
 - **断线自动重连** - 实时检测宽带连接状态，断开后自动拨号
 - **工作时间控制** - 可设置工作时间段，非工作时间自动休眠
 - **系统托盘** - 最小化到托盘，右键菜单控制暂停/恢复/退出
-- **开机自启** - 一键设置开机自动启动
+- **开机自启** - 一键设置开机自动启动（后台静默连接）
 - **远程唤醒 (WOL)** - 手机/电脑远程唤醒目标设备，支持 Web 管理页面
 - **设备管理** - 添加/删除唤醒设备，实时检测在线状态
 - **日志管理** - 记录运行日志，支持查看和清空
@@ -20,12 +20,17 @@
 
 1. 下载并解压 `自动校园网连接-安装包.zip`
 2. 双击运行 `安装程序.bat`
-3. 双击桌面快捷方式即可使用
+3. 安装完成后，双击桌面快捷方式即可使用
+
+### 卸载
+
+1. 进入安装目录 `%LOCALAPPDATA%\自动校园网连接`
+2. 双击运行 `卸载程序.bat`
 
 ### 从源码运行
 
 ```bash
-# 1. 安装 Python 3.8+（需要包含 Tkinter）
+# 1. 安装 Python 3.10+（需要包含 Tkinter）
 # 2. 安装依赖
 pip install -r requirements.txt
 
@@ -45,7 +50,7 @@ build.bat
 ## 使用
 
 1. 打开软件，填写宽带连接信息（连接名称、用户名、密码）
-2. 可选：勾选「开机自动启动」
+2. 可选：勾选「开机自动启动（后台静默连接）」
 3. 点击「保存并最小化到托盘」
 4. 软件将在后台运行，自动检测并重连
 
@@ -78,15 +83,20 @@ build.bat
 ├── device_manager.py     # 设备列表管理
 ├── logger.py             # 日志管理
 ├── icon_generator.py     # 图标自动生成器
+├── build_clean.spec      # PyInstaller 打包配置
+├── hook-tkinter.py       # PyInstaller tkinter hook
+├── runtime_hook_tkinter.py # tkinter 运行时路径设置
+├── 安装程序.bat           # 一键安装脚本
+├── 卸载程序.bat           # 一键卸载脚本
 ├── requirements.txt      # Python 依赖
 └── build.bat             # 一键打包脚本
 ```
 
 ## 技术栈
 
-- **Python 3.8+**
+- **Python 3.10+**
 - **Tkinter** - GUI 界面
-- **pystray** - 系统托盘
+- **pywin32** - Windows 系统托盘
 - **Pillow** - 图标处理
 - **PyInstaller** - 打包为 exe
 - **rasdial** - Windows 宽带拨号
