@@ -1,4 +1,6 @@
 import json
+import os
+import sys
 from pathlib import Path
 import threading
 
@@ -21,7 +23,11 @@ DEFAULT_CONFIG = {
 class ConfigManager:
     def __init__(self, config_path=None):
         if config_path is None:
-            config_path = Path(__file__).parent / "config.json"
+            if getattr(sys, "frozen", False):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = Path(base_dir) / "config.json"
         self.config_path = Path(config_path)
         self._lock = threading.Lock()
 

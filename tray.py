@@ -8,9 +8,7 @@ import win32con
 import win32api
 from icon_generator import generate_icon
 
-
 WM_TRAYICON = win32con.WM_USER + 1
-
 
 class SystemTray:
     def __init__(self, daemon, logger, config_manager, app_root=None):
@@ -24,15 +22,18 @@ class SystemTray:
         self._hicon = None
         self._next_id = 1000
         self._menu_actions = {}
+        self._tk_hwnd = None
+
+    def _find_tkinter_hwnd(self):
+        try:
+            if self.app_root and hasattr(self.app_root, 'root'):
+                self._tk_hwnd = self.app_root.root.winfo_id()
+                return self._tk_hwnd
+        except Exception:
+            pass
+        return None
 
     def _load_icon(self):
-        """
-        加载托盘图标，优先级：
-        1. app_icon.ico（程序目录/打包临时目录）
-        2. 从 exe 自身资源提取
-        3. 自动生成图标
-        4. Windows 默认图标
-        """
         ico_paths = []
         
         if getattr(sys, "frozen", False):
@@ -99,7 +100,7 @@ class SystemTray:
         self._menu_actions = {}
         self._next_id = 1000
 
-        self._add_menu_item(menu, "显示窗口", self._show_window)
+        self._add_menu_item(menu, "显示窗口", self._show_window_direct)
         self._add_menu_item(menu, "查看日志", self._show_logs)
 
         if self.daemon.is_running():
@@ -126,9 +127,31 @@ class SystemTray:
         
         win32gui.PostMessage(self.hwnd, win32con.WM_NULL, 0, 0)
 
+    def _show_window_direct(self):
+        try:
+            if self.app_root and hasattr(self.app_root, 'root'):
+                root = self.app_root.root
+                root.after(0, self._do_show_window)
+        except Exception as e:
+            self.logger.error(f"显示窗口失败: {e}")
+
+    def _do_show_window(self):
+        try:
+            root = self.app_root.root
+            root.deiconify()
+            root.lift()
+            root.attributes('-topmost', True)
+            root.after(100, lambda: root.attributes('-topmost', False))
+            root.focus_force()
+        except Exception as e:
+            self.logger.error(f"显示窗口失败: {e}")
+
     def _show_logs(self):
-        if self.app_root:
-            self.app_root.after(0, self.app_root._show_logs)
+        try:
+            if self.app_root:
+                self.app_root.after(0, self.app_root._show_logs)
+        except Exception as e:
+            self.logger.error(f"显示日志失败: {e}")
 
     def _toggle_connection(self):
         if self.daemon.is_running():
@@ -142,29 +165,21 @@ class SystemTray:
             self.daemon.start()
 
     def _quit(self):
-        if self.daemon:
-            self.daemon.stop()
-        self._running = False
-        self._remove_icon()
-        if self.hwnd:
-            try:
-                win32gui.DestroyWindow(self.hwnd)
-                self.hwnd = None
-            except Exception:
-                pass
-        if self.app_root:
-            self.app_root.after(0, self.app_root.root.quit)
-
-    def _show_window(self):
-        if self.app_root:
-            def restore():
-                root = self.app_root.root
-                root.deiconify()
-                root.lift()
-                root.attributes('-topmost', True)
-                root.after(100, lambda: root.attributes('-topmost', False))
-                root.focus_force()
-            self.app_root.after(0, restore)
+        try:
+            if self.daemon:
+                self.daemon.stop()
+            self._running = False
+            self._remove_icon()
+            if self.hwnd:
+                try:
+                    win32gui.DestroyWindow(self.hwnd)
+                    self.hwnd = None
+                except Exception:
+                    pass
+            if self.app_root:
+                self.app_root.after(0, self.app_root.root.quit)
+        except Exception as e:
+            self.logger.error(f"退出失败: {e}")
 
     def start(self):
         self._thread = threading.Thread(target=self._run_tray, daemon=True)
@@ -172,6 +187,7 @@ class SystemTray:
 
     def _run_tray(self):
         self._running = True
+        self._find_tkinter_hwnd()
 
         wc = win32gui.WNDCLASS()
         wc.hInstance = win32gui.GetModuleHandle(None)
@@ -211,7 +227,7 @@ class SystemTray:
             if lparam in (win32con.WM_RBUTTONUP, win32con.WM_CONTEXTMENU):
                 self._show_menu()
             elif lparam == win32con.WM_LBUTTONDBLCLK:
-                self._show_window()
+                self._show_window_direct()
         elif msg == win32con.WM_DESTROY:
             win32gui.PostQuitMessage(0)
         return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)

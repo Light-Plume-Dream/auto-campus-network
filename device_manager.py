@@ -1,5 +1,7 @@
 import subprocess
 import json
+import os
+import sys
 import threading
 from pathlib import Path
 from wol import get_local_mac, get_computer_name, get_local_ip
@@ -11,7 +13,11 @@ DEFAULT_DEVICES_FILE = "wol_devices.json"
 class DeviceManager:
     def __init__(self, devices_path=None):
         if devices_path is None:
-            devices_path = Path(__file__).parent / DEFAULT_DEVICES_FILE
+            if getattr(sys, "frozen", False):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+            devices_path = Path(base_dir) / DEFAULT_DEVICES_FILE
         self.devices_path = Path(devices_path)
         self._lock = threading.Lock()
 

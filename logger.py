@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import threading
 from pathlib import Path
 from datetime import datetime
@@ -8,7 +9,11 @@ from datetime import datetime
 class Logger:
     def __init__(self, log_dir=None, max_lines=5000):
         if log_dir is None:
-            log_dir = Path(__file__).parent / "logs"
+            if getattr(sys, "frozen", False):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+            log_dir = Path(base_dir) / "logs"
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self._log_file = self.log_dir / f"connection_{datetime.now().strftime('%Y%m')}.log"
